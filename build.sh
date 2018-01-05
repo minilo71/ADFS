@@ -5,8 +5,12 @@ mkdir -p build
 
 # Set the BEEBASM executable for the platform
 BEEBASM=../tools/beebasm/beebasm.exe
-if [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
+if [ "$(uname -s)" == "Darwin" ]; then
+	BEEBASM=../tools/beebasm/beebasm-darwin
+    MD5SUM=md5
+elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
     BEEBASM=../tools/beebasm/beebasm
+    MD5SUM=md5sum
 fi
 
 ssd=adfs.ssd
@@ -16,7 +20,7 @@ tools/mmb_utils/blank_ssd.pl build/${ssd}
 echo
 
 cd src
-for top in  `ls top_*.asm`
+for top in `ls top_*.asm`
 do
     name=`echo ${top%.asm} | cut -c5-`
     echo "Building $name..."
@@ -42,7 +46,7 @@ do
     grep "code ends at" ../build/${name}.log
 
     # Report build checksum
-    echo "    mdsum is "`md5sum <../build/${name}`
+    echo "    mdsum is "`$MD5SUM <../build/${name}`
 done
 cd ..
 
