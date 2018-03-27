@@ -1,11 +1,11 @@
 *******************************************************************************
 *                                                                             *
-*                               BeebAsm V1.04                                 *
+*                               BeebAsm V1.08                                 *
 *                                                                             *
 *             A portable 6502 assembler with BBC Micro style syntax           *
 *                                                                             *
-*              Copyright (C) Rich Talbot-Watkins 2007, 2008, 2009             *
-*                            <rich_tw@hotmail.com>                            *
+*                  Copyright (C) Rich Talbot-Watkins 2007-2012                *
+*                             <richtw1@gmail.com>                             *
 *                                                                             *
 *    This program is free software: you can redistribute it and/or modify     *
 *    it under the terms of the GNU General Public License as published by     *
@@ -152,6 +152,13 @@ This specifies the name of the source file for BeebAsm to process.  In the
 absence of any switches specifying disc image filenames, SAVE commands in the
 source code will write out object files directly to the current directory.
 
+-o <filename>
+
+If this is specified, then the SAVE command can be used without supplying a
+filename, and this one will be used instead.  This allows BeebAsm to be used
+like a conventional assembler, specifying both input and output filenames
+from the command line.
+
 -do <filename>
 
 This specifies the name of a new disc image to be created.  All object code
@@ -162,6 +169,11 @@ files will be saved to within this disc image.
 If specifed, BeebAsm will create a !Boot file on the new disc image, containing
 the command '*RUN <DFS filename>'.  The new disc image will already be set to
 *OPT 4,3 (*EXEC !Boot).
+
+-opt <value>
+
+If specified, this sets the disc option of the generated disc image (i.e. the
+*OPT 4,n value) to the value specified.  This overrides the -boot option.
 
 -di <filename>
 
@@ -401,6 +413,21 @@ PRINT
             PRINT "Value of label 'start' =", ~start
             PRINT "numdots =", numdots, "dottable size =", dotend-dotstart
 
+			
+ERROR "message"
+
+  Causes BeebAsm to abort assembly with the provided error message.  This can
+  be useful for enforcing certain constraints on generated code, for example:
+  
+            .table
+			    FOR n, 1, 32
+				    EQUB 255 / n
+			    NEXT
+				
+			IF HI(P%)<>HI(table)
+			    ERROR "Table crosses page boundary"
+			ENDIF
+
 
 FOR <var>, start, end [, step] ... NEXT
 
@@ -501,6 +528,84 @@ IF...ELIF...ELSE...ENDIF
           BPL loop
           RTS
       }
+
+
+PUTFILE <host filename>, [<beeb filename>,] <start addr> [,<exec addr>]
+
+  This provides a convenient way of copying a file from the host OS directly
+  to the output disc image.  If no 'beeb filename' is provided, the host
+  filename will be used (and must therefore be 7 characters or less in length).
+  A start address must be provided (and optionally an execution address can
+  be provided too).
+  
+  
+PUTBASIC <host filename> [,<beeb filename>]
+
+  This takes a BASIC program as a plain text file on the host OS, tokenises it,
+  and outputs it to the disc image as a native BASIC file.  Credit to Thomas
+  Harte for the BASIC tokenising routine.
+  
+  
+MACRO <name> [,<parameter list...>]
+ENDMACRO
+
+  This pair of commands is used to define assembler macros.  Their use is best
+  illustrated by an example:
+  
+      MACRO ADDI8 addr, val
+		  IF val=1
+			  INC addr
+		  ELIF val>1
+			  CLC
+			  LDA addr
+			  ADC #val
+			  STA addr
+		  ENDIF
+	  ENDMACRO
+
+  This defines a macro called ADDI8 ("ADD Immediate 8-bit") whose function is
+  to add a constant to a memory address.  It expects two parameters: the
+  memory address and the constant value.  The body of the macro contains an IF
+  block which will generate the most appropriate code according to the constant
+  value passed in.
+  
+  Then, at any point afterwards, the macro can be used as follows:
+  
+      ADDI8 &900, 1            ; increment address &900 by 1
+	  ADDI8 bonus, 10          ; add 10 to the memory location 'bonus'
+	  ADDI8 pills, pill_add    ; pills += pill_add
+
+  Macros can also be called from other macros, as demonstrated by this somewhat
+  contrived example:
+  
+  	  MACRO ADDI16 addr, val
+	      IF val=0
+		      ; do nothing
+		  ELIF val=1
+			  INC addr
+			  BNE skip1
+			  INC addr+1
+			  .skip1
+		  ELIF HI(val)=0
+			  ADDI8 addr, val
+			  BCC skip2
+			  INC addr+1
+			  .skip2
+		  ELSE
+		      CLC
+			  LDA addr
+			  ADC #LO(val)
+			  STA addr
+			  LDA addr+1
+			  ADC #HI(val)
+			  STA addr+1
+		  ENDIF
+	  ENDMACRO
+
+  Care should be taken with macros, as the details of the code assembled are
+  hidden.  In the above ADDI16 example, the C flag is not set consistently,
+  depending on the inputs to the macro (e.g. it remains unchanged if val=0 or
+  1, and will not be correct if val<256).
 
 
 
@@ -608,6 +713,18 @@ based on the above demo, but it runs at a low address (&300).
 
 9. VERSION HISTORY
 
+19/01/2012  1.08  Fixed makefile for GCC (MinGW) builds.
+                  Added COPYBLOCK command to manage blocks of memory.
+06/10/2011  1.07  Fixed mixed-case bug for keywords (so now oddities such as
+                  INy are parsed correctly).
+                  Now function keywords require an open bracket immediately
+                  afterwards (which now means that symbol names such as
+                  HIGHSCORE, which start with the keyword HI, are valid).
+16/06/2011  1.06  Fixed bug in EQUD with unsigned int values.
+                  Added ERROR directive.
+25/04/2011  1.05  Added macros.
+                  Added PUTFILE and PUTBASIC (to tokenise a plaintext BASIC
+                  file, using code by Thomas Harte).
 02/12/2009  1.04  Additions by Kevin Bracey:
                   Added 65C02 instruction set and CPU directive.
                   Added ELIF, EQUD.
@@ -649,6 +766,6 @@ based on the above demo, but it runs at a low address (&300).
 
 There are bound to be loads.  I wrote it quickly!  Please help me zap all the
 problems by reporting any bugs to me, Rich Talbot-Watkins, at
-<rich_tw@hotmail.com>, or join the forum at <http://www.retrosoftware.co.uk>.
+<richtw1@gmail.com>, or join the forum at <http://www.retrosoftware.co.uk>.
 
 Thank you!
