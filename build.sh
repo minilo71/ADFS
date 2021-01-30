@@ -4,16 +4,23 @@ rm -rf build
 mkdir -p build
 
 # Set the BEEBASM executable for the platform
+# Let's see if the user already has one on their path
+BEEBASM=$(type -path beebasm 2>/dev/null)
 if [ "$(uname -s)" == "Darwin" ]; then
-	BEEBASM=../tools/beebasm/beebasm-darwin
+    BEEBASM=${BEEBASM:-tools/beebasm/beebasm-darwin}
     MD5SUM=md5
 elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
-    BEEBASM=../tools/beebasm/beebasm
+    if [ "$(uname -m)" == "x86_64" ]; then
+        BEEBASM=${BEEBASM:-tools/beebasm/beebasm64}
+    else
+        BEEBASM=${BEEBASM:-tools/beebasm/beebasm32}
+    fi
     MD5SUM=md5sum
 elif [ "$(expr substr $(uname -s) 1 9)" == "CYGWIN_NT" ]; then
-    BEEBASM=../tools/beebasm/beebasm.exe
+    BEEBASM=${BEEBASM:-tools/beebasm/beebasm.exe}
     MD5SUM=md5sum
 fi
+echo Using $BEEBASM
 
 ssd=adfs.ssd
 
