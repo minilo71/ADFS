@@ -1,6 +1,6 @@
 *******************************************************************************
 *                                                                             *
-*                               BeebAsm V1.08                                 *
+*                               BeebAsm V1.09                                 *
 *                                                                             *
 *             A portable 6502 assembler with BBC Micro style syntax           *
 *                                                                             *
